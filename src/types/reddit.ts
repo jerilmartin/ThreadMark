@@ -10,7 +10,8 @@ export interface RedditPost {
   posted_at?: string;
   trending?: boolean;
   trendingCount?: number;
-  subredditRank?: number; // 1 = top post in that subreddit
+  subredditRank?: number;
+  source: 'reddit' | 'hackernews' | 'techcrunch'; // Track source
 }
 
 export interface Stats {
@@ -18,6 +19,7 @@ export interface Stats {
   postedToday: number;
   postedThisWeek: number;
   bySubreddit: Record<string, number>;
+  bySource: Record<string, number>; // Track by source
 }
 
 export interface PostsStorage {

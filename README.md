@@ -1,24 +1,29 @@
 # ThreadMark
 
-A clean Reddit content discovery dashboard that aggregates top tech posts from curated subreddits using RSS feeds.
+A content discovery dashboard that aggregates the best tech posts from Reddit, HackerNews, and TechCrunch.
 
 ## Features
 
-- Fetches top posts from 7 tech subreddits
-- No API keys required (uses public RSS feeds)
-- Track posts you've read/shared
-- Auto-cleanup after 4 days
-- Stats dashboard
+- **Multi-source aggregation**: Reddit + HackerNews + TechCrunch = 25 top posts
+- **Trending detection**: Highlights stories appearing across multiple sources
+- **No API keys required**: Uses public RSS feeds
+- **Track what you've shared**: Mark posts as done and view history
+- **Auto-cleanup**: Posts expire after 4 days
+- **Stats dashboard**: See your activity by source and topic
 
-## Subreddits
+## Sources
 
-- r/technology
-- r/programming
-- r/webdev
-- r/MachineLearning
-- r/artificial
-- r/netsec
-- r/futurology
+**Reddit (8 subreddits, top/week for quality):**
+- r/technology, r/programming, r/technews
+- r/MachineLearning, r/artificial
+- r/netsec, r/cybersecurity
+- r/gadgets
+
+**HackerNews:**
+- Stories with 150+ points
+
+**TechCrunch:**
+- Latest tech news and startup coverage (last 3 days)
 
 ## Getting Started
 
@@ -34,3 +39,5 @@ Open http://localhost:3000
 ```bash
 vercel
 ```
+
+No environment variables needed.

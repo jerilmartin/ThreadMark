@@ -20,6 +20,7 @@ export default function Dashboard() {
     const oneDayAgo = now - 24 * 60 * 60 * 1000;
     const oneWeekAgo = now - 7 * 24 * 60 * 60 * 1000;
     const bySubreddit: Record<string, number> = {};
+    const bySource: Record<string, number> = { reddit: 0, hackernews: 0, techcrunch: 0 };
     let postedToday = 0;
     let postedThisWeek = 0;
 
@@ -28,9 +29,10 @@ export default function Dashboard() {
       if (postedTime > oneDayAgo) postedToday++;
       if (postedTime > oneWeekAgo) postedThisWeek++;
       bySubreddit[post.subreddit] = (bySubreddit[post.subreddit] || 0) + 1;
+      bySource[post.source] = (bySource[post.source] || 0) + 1;
     });
 
-    return { totalPosted: posted.length, postedToday, postedThisWeek, bySubreddit };
+    return { totalPosted: posted.length, postedToday, postedThisWeek, bySubreddit, bySource };
   }, [posted]);
 
   const updateFromStorage = (storage: PostsStorage) => {
@@ -125,14 +127,27 @@ export default function Dashboard() {
     MachineLearning: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
     artificial: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
     netsec: 'bg-red-500/10 text-red-400 border-red-500/20',
-    futurology: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20',
     cybersecurity: 'bg-orange-500/10 text-orange-400 border-orange-500/20',
     gadgets: 'bg-violet-500/10 text-violet-400 border-violet-500/20',
+    HackerNews: 'bg-orange-600/10 text-orange-500 border-orange-600/20',
+    TechCrunch: 'bg-green-600/10 text-green-500 border-green-600/20',
   };
 
   const getSubredditStyle = (sub: string) => subredditColors[sub] || 'bg-gray-500/10 text-gray-400 border-gray-500/20';
 
-  const PostCard = ({ post, isHistory = false }: { post: RedditPost; isHistory?: boolean }) => (
+  const getSourceBadge = (source: string) => {
+    const badges = {
+      reddit: { label: 'Reddit', color: 'bg-blue-500/10 text-blue-400 border-blue-500/20' },
+      hackernews: { label: 'HN', color: 'bg-orange-500/10 text-orange-400 border-orange-500/20' },
+      techcrunch: { label: 'TC', color: 'bg-green-500/10 text-green-400 border-green-500/20' },
+    };
+    return badges[source as keyof typeof badges] || badges.reddit;
+  };
+
+  const PostCard = ({ post, isHistory = false }: { post: RedditPost; isHistory?: boolean }) => {
+    const sourceBadge = getSourceBadge(post.source);
+    
+    return (
     <article className={`bg-white dark:bg-gray-900 border rounded-lg p-5 hover:shadow-md transition-shadow ${
       post.trending 
         ? 'border-orange-300 dark:border-orange-500/50 ring-1 ring-orange-200 dark:ring-orange-500/20' 
@@ -143,9 +158,12 @@ export default function Dashboard() {
           <div className="flex items-center gap-2 mb-3 flex-wrap">
             {post.trending && (
               <span className="px-2 py-0.5 text-xs font-semibold bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded">
-                TRENDING · {post.trendingCount} subs
+                TRENDING · {post.trendingCount} sources
               </span>
             )}
+            <span className={`px-2 py-0.5 text-xs font-medium rounded border ${sourceBadge.color}`}>
+              {sourceBadge.label}
+            </span>
             <span className={`px-2 py-0.5 text-xs font-medium rounded border ${getSubredditStyle(post.subreddit)}`}>
               {post.subreddit}
             </span>
@@ -204,6 +222,7 @@ export default function Dashboard() {
       </div>
     </article>
   );
+};
 
 
   return (
@@ -289,25 +308,48 @@ export default function Dashboard() {
             </div>
 
             {Object.keys(stats.bySubreddit).length > 0 && (
-              <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6">
-                <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">By Subreddit</h3>
-                <div className="space-y-3">
-                  {Object.entries(stats.bySubreddit)
-                    .sort(([, a], [, b]) => b - a)
-                    .map(([sub, count]) => (
-                      <div key={sub} className="flex items-center gap-4">
-                        <span className="text-sm text-gray-600 dark:text-gray-400 w-28">{sub}</span>
-                        <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-2">
-                          <div
-                            className="bg-gray-900 dark:bg-white h-full rounded-full transition-all"
-                            style={{ width: `${(count / stats.totalPosted) * 100}%` }}
-                          />
+              <>
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6">
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">By Source</h3>
+                  <div className="space-y-3">
+                    {Object.entries(stats.bySource)
+                      .filter(([, count]) => count > 0)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([source, count]) => (
+                        <div key={source} className="flex items-center gap-4">
+                          <span className="text-sm text-gray-600 dark:text-gray-400 w-28 capitalize">{source}</span>
+                          <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-2">
+                            <div
+                              className="bg-gray-900 dark:bg-white h-full rounded-full transition-all"
+                              style={{ width: `${(count / stats.totalPosted) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 dark:text-white w-8 text-right">{count}</span>
                         </div>
-                        <span className="text-sm font-medium text-gray-900 dark:text-white w-8 text-right">{count}</span>
-                      </div>
-                    ))}
+                      ))}
+                  </div>
                 </div>
-              </div>
+
+                <div className="bg-white dark:bg-gray-900 border border-gray-200 dark:border-gray-800 rounded-lg p-6">
+                  <h3 className="text-sm font-medium text-gray-900 dark:text-white mb-4">By Subreddit</h3>
+                  <div className="space-y-3">
+                    {Object.entries(stats.bySubreddit)
+                      .sort(([, a], [, b]) => b - a)
+                      .map(([sub, count]) => (
+                        <div key={sub} className="flex items-center gap-4">
+                          <span className="text-sm text-gray-600 dark:text-gray-400 w-28">{sub}</span>
+                          <div className="flex-1 bg-gray-100 dark:bg-gray-800 rounded-full h-2">
+                            <div
+                              className="bg-gray-900 dark:bg-white h-full rounded-full transition-all"
+                              style={{ width: `${(count / stats.totalPosted) * 100}%` }}
+                            />
+                          </div>
+                          <span className="text-sm font-medium text-gray-900 dark:text-white w-8 text-right">{count}</span>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              </>
             )}
 
             {stats.totalPosted === 0 && (
@@ -355,7 +397,7 @@ export default function Dashboard() {
 
         {generatedAt && (
           <footer className="mt-12 pt-6 border-t border-gray-200 dark:border-gray-800 text-center text-xs text-gray-400">
-            Last updated {timeAgo(new Date(generatedAt).getTime() / 1000)} ago · 9 subreddits · Auto-expires in 4 days
+            Last updated {timeAgo(new Date(generatedAt).getTime() / 1000)} ago · Reddit + HackerNews + TechCrunch · Auto-expires in 4 days
           </footer>
         )}
       </main>

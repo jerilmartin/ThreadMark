@@ -68,9 +68,15 @@ export async function savePosts(posts: RedditPost[]): Promise<PostsStorage> {
   await ensureDataDir();
   const existing = await readPosts();
   
+  // Get IDs of posts already marked as done or deleted
+  const postedIds = new Set(existing.posted.map(p => p.id));
+  
+  // Filter out posts that have already been marked as done
+  const filteredPosts = posts.filter(post => !postedIds.has(post.id));
+  
   const storage: PostsStorage = {
     generated_at: new Date().toISOString(),
-    posts: cleanupOldPosts(posts),
+    posts: cleanupOldPosts(filteredPosts),
     posted: cleanupOldPosts(existing.posted),
   };
   
