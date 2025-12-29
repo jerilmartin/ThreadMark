@@ -15,6 +15,28 @@ const CTA_OPTIONS = [
   { id: 'discuss', label: 'discuss 👇', text: '\n\nlet\'s discuss 👇' },
 ] as const;
 
+const QUICK_TWEET_CATEGORIES = [
+  { id: 'uncomfortable', label: 'Provocative', desc: 'High engagement' },
+  { id: 'reflective', label: 'Thoughtful', desc: 'Quality replies' },
+  { id: 'debate', label: 'Debate', desc: 'Opinion-splitting' },
+  { id: 'punchy', label: 'Punchy', desc: 'Short hits' },
+  { id: 'personal', label: 'Personal', desc: 'Story hooks' },
+  { id: 'random', label: 'Mix', desc: 'Variety' },
+] as const;
+
+interface QuickTweet {
+  text: string;
+  category: string;
+}
+
+interface QuickTweetModalState {
+  isOpen: boolean;
+  tweets: QuickTweet[];
+  loading: boolean;
+  category: string;
+  selectedTweet: number;
+}
+
 interface TweetModalState {
   isOpen: boolean;
   post: RedditPost | null;
@@ -43,6 +65,9 @@ export default function Dashboard() {
     isOpen: false, post: null, tweets: [], selectedTweet: 0,
     loading: false, tone: 'hottake', imageUrl: null, imageLoading: false,
     mode: 'tweet', thread: [], threadLoading: false, selectedCTA: 'none',
+  });
+  const [quickTweetModal, setQuickTweetModal] = useState<QuickTweetModalState>({
+    isOpen: false, tweets: [], loading: false, category: 'random', selectedTweet: 0,
   });
 
 
@@ -229,6 +254,35 @@ export default function Dashboard() {
     window.open(intentUrl, '_blank');
   };
 
+  // Quick Tweet functions
+  const openQuickTweetModal = () => {
+    setQuickTweetModal({ isOpen: true, tweets: [], loading: true, category: 'random', selectedTweet: 0 });
+    generateQuickTweets('random');
+  };
+
+  const generateQuickTweets = async (category: string) => {
+    setQuickTweetModal(prev => ({ ...prev, loading: true, category, selectedTweet: 0 }));
+    try {
+      const res = await fetch('/api/quick-tweet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ category }),
+      });
+      const json = await res.json();
+      if (json.success && json.data.tweets?.length) {
+        setQuickTweetModal(prev => ({ ...prev, tweets: json.data.tweets, loading: false }));
+      } else {
+        setQuickTweetModal(prev => ({ ...prev, tweets: [], loading: false }));
+      }
+    } catch {
+      setQuickTweetModal(prev => ({ ...prev, tweets: [], loading: false }));
+    }
+  };
+
+  const closeQuickTweetModal = () => {
+    setQuickTweetModal({ isOpen: false, tweets: [], loading: false, category: 'random', selectedTweet: 0 });
+  };
+
   const closeTweetModal = () => {
     setTweetModal({
       isOpen: false, post: null, tweets: [], selectedTweet: 0,
@@ -265,11 +319,11 @@ export default function Dashboard() {
     return badges[source as keyof typeof badges] || badges.reddit;
   };
 
-  const toneOptions: { value: TweetTone; label: string; emoji: string }[] = [
-    { value: 'hottake', label: 'Hot Take', emoji: '🔥' },
-    { value: 'analytical', label: 'Analytical', emoji: '🧠' },
-    { value: 'sarcastic', label: 'Sarcastic', emoji: '😏' },
-    { value: 'unhinged', label: 'Unhinged', emoji: '😈' },
+  const toneOptions: { value: TweetTone; label: string }[] = [
+    { value: 'hottake', label: 'Hot Take' },
+    { value: 'analytical', label: 'Analytical' },
+    { value: 'sarcastic', label: 'Sarcastic' },
+    { value: 'unhinged', label: 'Unhinged' },
   ];
 
 
@@ -379,7 +433,7 @@ export default function Dashboard() {
                 onClick={() => setTweetModal(prev => ({ ...prev, mode: 'tweet' }))}
                 className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
                   tweetModal.mode === 'tweet'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
                 }`}
               >
@@ -394,11 +448,11 @@ export default function Dashboard() {
                 }}
                 className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
                   tweetModal.mode === 'thread'
-                    ? 'bg-blue-500 text-white'
+                    ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
                 }`}
               >
-                🧵 Thread (4 tweets)
+                Thread (4 tweets)
               </button>
             </div>
 
@@ -415,11 +469,11 @@ export default function Dashboard() {
                         onClick={() => generateTweetsForPost(tweetModal.post!, option.value)}
                         className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                           tweetModal.tone === option.value
-                            ? 'bg-blue-500 text-white border-blue-500'
-                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-blue-300'
+                            ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                            : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-400'
                         }`}
                       >
-                        {option.emoji} {option.label}
+                        {option.label}
                       </button>
                     ))}
                   </div>
@@ -453,7 +507,7 @@ export default function Dashboard() {
                 {/* CTA Selector */}
                 {selectedTweet && (
                   <div>
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Add Call-to-Action</label>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 block">Call-to-Action</label>
                     <div className="flex gap-2 flex-wrap">
                       {CTA_OPTIONS.map((cta) => (
                         <button
@@ -461,8 +515,8 @@ export default function Dashboard() {
                           onClick={() => setTweetModal(prev => ({ ...prev, selectedCTA: cta.id }))}
                           className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
                             tweetModal.selectedCTA === cta.id
-                              ? 'bg-green-500 text-white border-green-500'
-                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-green-300'
+                              ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                              : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-400'
                           }`}
                         >
                           {cta.label}
@@ -634,9 +688,9 @@ export default function Dashboard() {
                           window.open(tweetModal.imageUrl!, '_blank');
                         }
                       }}
-                      className="text-sm text-blue-500 hover:text-blue-600 font-medium"
+                      className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium"
                     >
-                      {copiedId === 'image-copied' ? '✓ Copied!' : '📋 Copy image'}
+                      {copiedId === 'image-copied' ? 'Copied' : 'Copy image'}
                     </button>
                   </div>
                   <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
@@ -662,9 +716,122 @@ export default function Dashboard() {
   };
 
 
+  // Quick Tweet Modal Component
+  const QuickTweetModal = () => {
+    if (!quickTweetModal.isOpen) return null;
+    
+    const selectedTweet = quickTweetModal.tweets[quickTweetModal.selectedTweet];
+    
+    return (
+      <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+        <div className="bg-white dark:bg-gray-900 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="p-6 border-b border-gray-200 dark:border-gray-800">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white">Quick Tweet</h2>
+              <button onClick={closeQuickTweetModal} className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <p className="text-sm text-gray-500 mt-1">Standalone engagement tweets - no news needed</p>
+          </div>
+          
+          <div className="p-6 space-y-6">
+            {/* Category Selector */}
+            <div>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-3 block">Category</label>
+              <div className="flex flex-wrap gap-2">
+                {QUICK_TWEET_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    onClick={() => generateQuickTweets(cat.id)}
+                    className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
+                      quickTweetModal.category === cat.id
+                        ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
+                        : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-400'
+                    }`}
+                  >
+                    {cat.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Tweet Options */}
+            {quickTweetModal.loading ? (
+              <div className="py-8 flex items-center justify-center">
+                <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-gray-900 dark:border-t-white rounded-full animate-spin" />
+                <span className="ml-3 text-gray-500 text-sm">Generating...</span>
+              </div>
+            ) : quickTweetModal.tweets.length > 0 && (
+              <div className="space-y-2">
+                {quickTweetModal.tweets.map((tweet, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setQuickTweetModal(prev => ({ ...prev, selectedTweet: index }))}
+                    className={`w-full text-left p-4 rounded-lg border transition-colors ${
+                      quickTweetModal.selectedTweet === index
+                        ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
+                    }`}
+                  >
+                    <p className="text-gray-900 dark:text-gray-100 text-sm">{tweet.text}</p>
+                    <p className="text-xs text-gray-400 mt-2">{tweet.text.length}/280</p>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* Actions */}
+            {selectedTweet && (
+              <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between mb-4">
+                  <span className={`text-sm ${selectedTweet.text.length > 280 ? 'text-red-500' : 'text-gray-400'}`}>
+                    {selectedTweet.text.length}/280
+                  </span>
+                  <div className="flex gap-4">
+                    <button
+                      onClick={() => generateQuickTweets(quickTweetModal.category)}
+                      className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      Regenerate
+                    </button>
+                    <button
+                      onClick={() => copy(selectedTweet.text, 'quick-tweet', 'text')}
+                      className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                    >
+                      {copiedId === 'quick-tweet-text' ? 'Copied' : 'Copy'}
+                    </button>
+                  </div>
+                </div>
+                
+                <button
+                  onClick={() => {
+                    postToX(selectedTweet.text);
+                    closeQuickTweetModal();
+                  }}
+                  disabled={selectedTweet.text.length > 280}
+                  className="w-full px-4 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                  </svg>
+                  Post to X
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  };
+
+
   return (
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <TweetModal />
+      <QuickTweetModal />
       
       {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
@@ -674,13 +841,21 @@ export default function Dashboard() {
               <h1 className="text-xl font-semibold text-gray-900 dark:text-white">ThreadMark</h1>
               <p className="text-sm text-gray-500 mt-0.5">Tech content discovery</p>
             </div>
-            <button
-              onClick={fetchNewPosts}
-              disabled={fetching}
-              className="px-4 py-2 text-sm font-medium bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
-            >
-              {fetching ? 'Fetching...' : 'Fetch Posts'}
-            </button>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={openQuickTweetModal}
+                className="px-4 py-2 text-sm font-medium border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+              >
+                Quick Tweet
+              </button>
+              <button
+                onClick={fetchNewPosts}
+                disabled={fetching}
+                className="px-4 py-2 text-sm font-medium bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg hover:opacity-90 disabled:opacity-50 transition-opacity"
+              >
+                {fetching ? 'Fetching...' : 'Fetch Posts'}
+              </button>
+            </div>
           </div>
         </div>
       </header>

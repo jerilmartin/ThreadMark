@@ -149,7 +149,7 @@ Return only JSON:
   }
 }
 
-function generateFallbackTweets(title: string, tone: TweetTone): GeneratedTweet[] {
+function generateFallbackTweets(_title: string, tone: TweetTone): GeneratedTweet[] {
   const fallbacks: Record<TweetTone, string[]> = {
     hottake: [
       `they've been saying the opposite for years but sure`,
@@ -260,6 +260,165 @@ Return JSON only:
       tone,
     };
   }
+}
+
+// Quick Tweet categories for standalone engagement tweets
+export type QuickTweetCategory = 'uncomfortable' | 'reflective' | 'debate' | 'punchy' | 'personal' | 'random';
+
+export interface QuickTweet {
+  text: string;
+  category: QuickTweetCategory;
+}
+
+export async function generateQuickTweets(category: QuickTweetCategory = 'random'): Promise<QuickTweet[]> {
+  const apiKey = process.env.GEMINI_API_KEY;
+  
+  if (!apiKey) {
+    return getQuickTweetFallbacks(category);
+  }
+
+  const genAI = new GoogleGenerativeAI(apiKey);
+  const model = genAI.getGenerativeModel({ 
+    model: 'gemini-2.5-flash',
+    generationConfig: { temperature: 1.0 }
+  });
+
+  const categoryPrompts: Record<QuickTweetCategory, string> = {
+    uncomfortable: `Generate short, punchy questions that make people uncomfortable but want to answer. Under 100 characters.
+
+EXAMPLES:
+- "what's a tech opinion that would get you mass unfollowed"
+- "what tool does everyone use that you refuse to touch"
+- "what's the worst advice you followed early in your career"
+- "what's something you pretend to understand but don't"
+- "what's a popular take you're tired of hearing"`,
+
+    reflective: `Generate simple, thoughtful questions. Under 100 characters. Easy to answer.
+
+EXAMPLES:
+- "what's something you stopped doing that improved your work"
+- "what took you way too long to learn"
+- "what's a small change that made a big difference"
+- "what do you wish you knew 5 years ago"
+- "what's underrated in your workflow"`,
+
+    debate: `Generate short debate starters. Under 100 characters. Two valid sides.
+
+EXAMPLES:
+- "is remote work actually more productive"
+- "are code reviews worth the time"
+- "is typescript worth the overhead"
+- "should you specialize or generalize"
+- "is perfectionism holding you back or pushing you forward"`,
+
+    punchy: `Generate very short, direct questions. Under 80 characters. One-liners.
+
+EXAMPLES:
+- "most overrated tool in your stack?"
+- "tabs or spaces and why"
+- "what's your unpopular tech opinion"
+- "what trend are you ignoring"
+- "what's dying that nobody talks about"`,
+
+    personal: `Generate simple personal experience questions. Under 100 characters.
+
+EXAMPLES:
+- "what's a tool you dropped and never looked back"
+- "what's the best career decision you made"
+- "what's something you learned the hard way"
+- "what habit actually stuck"
+- "what did you stop caring about"`,
+
+    random: `Generate a mix of short, engaging tech questions. Under 100 characters each. Variety of styles.`,
+  };
+
+  const prompt = `Generate 5 short tech engagement tweets. No news needed.
+
+${categoryPrompts[category]}
+
+RULES:
+- Keep it SHORT. Under 100 characters each, ideally under 80
+- Simple language, lowercase is fine
+- Questions work best
+- NO hashtags, NO links
+- Sound like a real person, not a brand
+- Easy to reply to
+
+Return JSON only:
+{"tweets":["tweet 1","tweet 2","tweet 3","tweet 4","tweet 5"]}`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    const response = result.response.text();
+    
+    let clean = response.trim();
+    if (clean.includes('```')) {
+      clean = clean.replace(/```json?\s*/gi, '').replace(/```/g, '').trim();
+    }
+    
+    const parsed = JSON.parse(clean);
+    
+    if (!parsed.tweets?.length) {
+      throw new Error('No tweets in response');
+    }
+    
+    return parsed.tweets.slice(0, 5).map((text: string) => ({
+      text,
+      category,
+    }));
+  } catch (error) {
+    console.error('Quick tweet generation error:', error);
+    return getQuickTweetFallbacks(category);
+  }
+}
+
+function getQuickTweetFallbacks(category: QuickTweetCategory): QuickTweet[] {
+  const fallbacks: Record<QuickTweetCategory, string[]> = {
+    uncomfortable: [
+      "what's a tech opinion that would get you mass unfollowed",
+      "what tool does everyone use that you refuse to touch",
+      "what's the worst advice you followed early on",
+      "what's something you pretend to understand",
+      "what popular take are you tired of hearing",
+    ],
+    reflective: [
+      "what's something you stopped doing that improved your work",
+      "what took you way too long to learn",
+      "what small change made a big difference",
+      "what do you wish you knew 5 years ago",
+      "what's underrated in your workflow",
+    ],
+    debate: [
+      "is remote work actually more productive",
+      "are code reviews worth the time",
+      "is typescript worth the overhead",
+      "should you specialize or generalize",
+      "is perfectionism helping or hurting you",
+    ],
+    punchy: [
+      "most overrated tool in your stack?",
+      "tabs or spaces and why",
+      "unpopular tech opinion?",
+      "what trend are you ignoring",
+      "what's dying that nobody talks about",
+    ],
+    personal: [
+      "what tool did you drop and never miss",
+      "best career decision you made",
+      "something you learned the hard way",
+      "what habit actually stuck",
+      "what did you stop caring about",
+    ],
+    random: [
+      "what's a tech opinion that would get you unfollowed",
+      "what took you way too long to learn",
+      "is remote work actually more productive",
+      "most overrated tool?",
+      "what tool did you drop and never miss",
+    ],
+  };
+
+  return fallbacks[category].map(text => ({ text, category }));
 }
 
 // Call-to-action suggestions
