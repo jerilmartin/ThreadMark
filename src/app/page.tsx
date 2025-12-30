@@ -649,63 +649,83 @@ export default function Dashboard() {
               </>
             )}
 
-            {/* Image Preview - shown in both modes */}
+            {/* Source Link - always shown */}
             <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
-              {tweetModal.imageLoading ? (
-                <div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
-                  <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-blue-500 rounded-full animate-spin" />
-                </div>
-              ) : tweetModal.imageUrl ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Image</label>
-                    <button
-                      onClick={async () => {
-                        try {
-                          const response = await fetch(tweetModal.imageUrl!);
-                          const blob = await response.blob();
-                          const img = new Image();
-                          img.crossOrigin = 'anonymous';
-                          await new Promise((resolve, reject) => {
-                            img.onload = resolve;
-                            img.onerror = reject;
-                            img.src = URL.createObjectURL(blob);
-                          });
-                          const canvas = document.createElement('canvas');
-                          canvas.width = img.width;
-                          canvas.height = img.height;
-                          const ctx = canvas.getContext('2d')!;
-                          ctx.drawImage(img, 0, 0);
-                          const pngBlob = await new Promise<Blob>((resolve) => {
-                            canvas.toBlob((b) => resolve(b!), 'image/png');
-                          });
-                          await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
-                          setCopiedId('image-copied');
-                          setTimeout(() => setCopiedId(null), 2000);
-                          URL.revokeObjectURL(img.src);
-                        } catch (err) {
-                          console.error('Failed to copy image:', err);
-                          window.open(tweetModal.imageUrl!, '_blank');
-                        }
-                      }}
-                      className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium"
-                    >
-                      {copiedId === 'image-copied' ? 'Copied' : 'Copy image'}
-                    </button>
-                  </div>
-                  <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-                    <img src={tweetModal.imageUrl} alt="Preview" className="w-full h-auto max-h-40 object-cover" />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
-                  <span className="text-sm text-gray-500 truncate flex-1">{tweetModal.post?.url}</span>
+              <div className="flex items-center justify-between mb-3">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Source</label>
+                <div className="flex gap-3">
                   <button
                     onClick={() => copy(tweetModal.post!.url, 'source', 'link')}
-                    className="ml-2 text-sm text-blue-500 hover:text-blue-600"
+                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
                   >
-                    {copiedId === 'source-link' ? '✓' : 'Copy'}
+                    {copiedId === 'source-link' ? 'Copied' : 'Copy link'}
                   </button>
+                  <a
+                    href={tweetModal.post?.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                  >
+                    Open ↗
+                  </a>
+                </div>
+              </div>
+              <div className="p-2 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <span className="text-xs text-gray-500 break-all">{tweetModal.post?.url}</span>
+              </div>
+            </div>
+
+            {/* Image Preview */}
+            <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
+              <div className="flex items-center justify-between mb-2">
+                <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Image</label>
+                {tweetModal.imageUrl && (
+                  <button
+                    onClick={async () => {
+                      try {
+                        const response = await fetch(tweetModal.imageUrl!);
+                        const blob = await response.blob();
+                        const img = new Image();
+                        img.crossOrigin = 'anonymous';
+                        await new Promise((resolve, reject) => {
+                          img.onload = resolve;
+                          img.onerror = reject;
+                          img.src = URL.createObjectURL(blob);
+                        });
+                        const canvas = document.createElement('canvas');
+                        canvas.width = img.width;
+                        canvas.height = img.height;
+                        const ctx = canvas.getContext('2d')!;
+                        ctx.drawImage(img, 0, 0);
+                        const pngBlob = await new Promise<Blob>((resolve) => {
+                          canvas.toBlob((b) => resolve(b!), 'image/png');
+                        });
+                        await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+                        setCopiedId('image-copied');
+                        setTimeout(() => setCopiedId(null), 2000);
+                        URL.revokeObjectURL(img.src);
+                      } catch (err) {
+                        console.error('Failed to copy image:', err);
+                        window.open(tweetModal.imageUrl!, '_blank');
+                      }
+                    }}
+                    className="text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white font-medium"
+                  >
+                    {copiedId === 'image-copied' ? 'Copied' : 'Copy image'}
+                  </button>
+                )}
+              </div>
+              {tweetModal.imageLoading ? (
+                <div className="h-32 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                  <div className="w-5 h-5 border-2 border-gray-300 dark:border-gray-600 border-t-gray-900 dark:border-t-white rounded-full animate-spin" />
+                </div>
+              ) : tweetModal.imageUrl ? (
+                <div className="rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
+                  <img src={tweetModal.imageUrl} alt="Preview" className="w-full h-auto max-h-48 object-cover" />
+                </div>
+              ) : (
+                <div className="h-24 bg-gray-100 dark:bg-gray-800 rounded-lg flex items-center justify-center">
+                  <span className="text-sm text-gray-400">No image found</span>
                 </div>
               )}
             </div>
