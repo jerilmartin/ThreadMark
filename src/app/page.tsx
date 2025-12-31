@@ -186,7 +186,7 @@ export default function Dashboard() {
       loading: true, tone: 'hottake', imageUrl: null, imageLoading: true,
       mode: 'tweet', thread: [], threadLoading: false, selectedCTA: 'none',
     });
-    
+
     // Fetch tweets and image in parallel (don't await, let them update state)
     generateTweetsForPost(post, 'hottake');
     fetchPostImage(post);
@@ -315,6 +315,7 @@ export default function Dashboard() {
       techcrunch: { label: 'TC', color: 'bg-green-500/10 text-green-400 border-green-500/20' },
       wired: { label: 'Wired', color: 'bg-purple-500/10 text-purple-400 border-purple-500/20' },
       googlenews: { label: 'GNews', color: 'bg-red-500/10 text-red-400 border-red-500/20' },
+      arstechnica: { label: 'Ars', color: 'bg-teal-500/10 text-teal-400 border-teal-500/20' },
     };
     return badges[source as keyof typeof badges] || badges.reddit;
   };
@@ -329,88 +330,87 @@ export default function Dashboard() {
 
   const PostCard = ({ post, isHistory = false }: { post: RedditPost; isHistory?: boolean }) => {
     const sourceBadge = getSourceBadge(post.source);
-    
+
     return (
-    <article className={`bg-white dark:bg-gray-900 border rounded-lg p-5 hover:shadow-md transition-shadow ${
-      post.trending 
-        ? 'border-orange-300 dark:border-orange-500/50 ring-1 ring-orange-200 dark:ring-orange-500/20' 
-        : 'border-gray-200 dark:border-gray-800'
-    }`}>
-      <div className="flex items-start gap-4">
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 mb-3 flex-wrap">
-            {post.trending && (
-              <span className="px-2 py-0.5 text-xs font-semibold bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded">
-                TRENDING · {post.trendingCount} sources
+      <article className={`bg-white dark:bg-gray-900 border rounded-lg p-5 hover:shadow-md transition-shadow ${post.trending
+          ? 'border-orange-300 dark:border-orange-500/50 ring-1 ring-orange-200 dark:ring-orange-500/20'
+          : 'border-gray-200 dark:border-gray-800'
+        }`}>
+        <div className="flex items-start gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-3 flex-wrap">
+              {post.trending && (
+                <span className="px-2 py-0.5 text-xs font-semibold bg-orange-500/10 text-orange-500 border border-orange-500/20 rounded">
+                  TRENDING · {post.trendingCount} sources
+                </span>
+              )}
+              <span className={`px-2 py-0.5 text-xs font-medium rounded border ${sourceBadge.color}`}>
+                {sourceBadge.label}
               </span>
-            )}
-            <span className={`px-2 py-0.5 text-xs font-medium rounded border ${sourceBadge.color}`}>
-              {sourceBadge.label}
-            </span>
-            <span className={`px-2 py-0.5 text-xs font-medium rounded border ${getSubredditStyle(post.subreddit)}`}>
-              {post.subreddit}
-            </span>
-            <span className="text-xs text-gray-400">{timeAgo(post.created_utc)} ago</span>
-          </div>
-          
-          <h3 className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed mb-4">
-            {post.title}
-          </h3>
-          
-          <div className="flex items-center gap-2 flex-wrap">
-            <button
-              onClick={() => openTweetModal(post)}
-              className="px-3 py-1.5 text-sm font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
-            >
-              Generate Tweet
-            </button>
-            <button
-              onClick={() => copy(`${post.title}\n\n${post.url}`, post.id, 'all')}
-              className="px-3 py-1.5 text-sm font-medium bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-md hover:opacity-90 transition-opacity"
-            >
-              {copiedId === `${post.id}-all` ? 'Copied!' : 'Copy'}
-            </button>
-            <a
-              href={post.permalink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
-            >
-              Open ↗
-            </a>
-            {!isHistory && (
-              <>
-                <button
-                  onClick={() => markAsPosted(post.id)}
-                  className="px-3 py-1.5 text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
-                >
-                  Done
-                </button>
-                <button
-                  onClick={() => deletePost(post.id)}
-                  className="px-3 py-1.5 text-sm text-gray-400 hover:text-red-500 transition-colors"
-                >
-                  Remove
-                </button>
-              </>
-            )}
+              <span className={`px-2 py-0.5 text-xs font-medium rounded border ${getSubredditStyle(post.subreddit)}`}>
+                {post.subreddit}
+              </span>
+              <span className="text-xs text-gray-400">{timeAgo(post.created_utc)} ago</span>
+            </div>
+
+            <h3 className="text-gray-900 dark:text-gray-100 font-medium leading-relaxed mb-4">
+              {post.title}
+            </h3>
+
+            <div className="flex items-center gap-2 flex-wrap">
+              <button
+                onClick={() => openTweetModal(post)}
+                className="px-3 py-1.5 text-sm font-medium bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors"
+              >
+                Generate Tweet
+              </button>
+              <button
+                onClick={() => copy(`${post.title}\n\n${post.url}`, post.id, 'all')}
+                className="px-3 py-1.5 text-sm font-medium bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-md hover:opacity-90 transition-opacity"
+              >
+                {copiedId === `${post.id}-all` ? 'Copied!' : 'Copy'}
+              </button>
+              <a
+                href={post.permalink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-colors"
+              >
+                Open ↗
+              </a>
+              {!isHistory && (
+                <>
+                  <button
+                    onClick={() => markAsPosted(post.id)}
+                    className="px-3 py-1.5 text-sm text-emerald-600 dark:text-emerald-400 hover:text-emerald-700 dark:hover:text-emerald-300 transition-colors"
+                  >
+                    Done
+                  </button>
+                  <button
+                    onClick={() => deletePost(post.id)}
+                    className="px-3 py-1.5 text-sm text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    Remove
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
-      </div>
-    </article>
-  );
-};
+      </article>
+    );
+  };
 
 
   // Tweet Modal Component
   const TweetModal = () => {
     if (!tweetModal.isOpen || !tweetModal.post) return null;
-    
+
     const selectedTweet = tweetModal.tweets[tweetModal.selectedTweet];
     const selectedCTA = CTA_OPTIONS.find(c => c.id === tweetModal.selectedCTA);
     const tweetWithCTA = selectedTweet ? selectedTweet.text + (selectedCTA?.text || '') : '';
     const charCount = tweetWithCTA.length;
-    
+
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-gray-900 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -425,17 +425,16 @@ export default function Dashboard() {
             </div>
             <p className="text-sm text-gray-500 mt-1 line-clamp-2">{tweetModal.post.title}</p>
           </div>
-          
+
           <div className="p-6 space-y-6">
             {/* Mode Toggle: Tweet vs Thread */}
             <div className="flex gap-2">
               <button
                 onClick={() => setTweetModal(prev => ({ ...prev, mode: 'tweet' }))}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-                  tweetModal.mode === 'tweet'
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${tweetModal.mode === 'tweet'
                     ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                }`}
+                  }`}
               >
                 Single Tweet
               </button>
@@ -446,11 +445,10 @@ export default function Dashboard() {
                     generateThreadForPost(tweetModal.post!);
                   }
                 }}
-                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${
-                  tweetModal.mode === 'thread'
+                className={`flex-1 py-2 px-4 rounded-lg text-sm font-medium transition-colors ${tweetModal.mode === 'thread'
                     ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900'
                     : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
-                }`}
+                  }`}
               >
                 Thread (4 tweets)
               </button>
@@ -467,11 +465,10 @@ export default function Dashboard() {
                       <button
                         key={option.value}
                         onClick={() => generateTweetsForPost(tweetModal.post!, option.value)}
-                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                          tweetModal.tone === option.value
+                        className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${tweetModal.tone === option.value
                             ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-400'
-                        }`}
+                          }`}
                       >
                         {option.label}
                       </button>
@@ -492,11 +489,10 @@ export default function Dashboard() {
                       <button
                         key={index}
                         onClick={() => setTweetModal(prev => ({ ...prev, selectedTweet: index }))}
-                        className={`w-full text-left p-4 rounded-lg border transition-colors ${
-                          tweetModal.selectedTweet === index
+                        className={`w-full text-left p-4 rounded-lg border transition-colors ${tweetModal.selectedTweet === index
                             ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20'
                             : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                        }`}
+                          }`}
                       >
                         <p className="text-gray-900 dark:text-gray-100 text-sm">{tweet.text}</p>
                       </button>
@@ -513,11 +509,10 @@ export default function Dashboard() {
                         <button
                           key={cta.id}
                           onClick={() => setTweetModal(prev => ({ ...prev, selectedCTA: cta.id }))}
-                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                            tweetModal.selectedCTA === cta.id
+                          className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${tweetModal.selectedCTA === cta.id
                               ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
                               : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-400'
-                          }`}
+                            }`}
                         >
                           {cta.label}
                         </button>
@@ -547,7 +542,7 @@ export default function Dashboard() {
                         {copiedId === 'tweet-text' ? 'Copied!' : 'Copy tweet text'}
                       </button>
                     </div>
-                    
+
                     <div className="flex gap-3">
                       <button
                         onClick={() => {
@@ -559,7 +554,7 @@ export default function Dashboard() {
                         className="flex-1 px-4 py-2.5 bg-black text-white rounded-lg font-medium hover:bg-gray-800 disabled:opacity-50 transition-colors flex items-center justify-center gap-2"
                       >
                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                         </svg>
                         Post to X
                       </button>
@@ -612,7 +607,7 @@ export default function Dashboard() {
                         <div className="mt-2 text-xs text-gray-400 ml-6">{tweet.length}/280</div>
                       </div>
                     ))}
-                    
+
                     <div className="pt-4 border-t border-gray-200 dark:border-gray-800">
                       <button
                         onClick={() => {
@@ -632,7 +627,7 @@ export default function Dashboard() {
                         className="w-full px-4 py-2.5 bg-black text-white rounded-lg font-medium hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
                       >
                         <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
-                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                          <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                         </svg>
                         Start thread on X
                       </button>
@@ -739,9 +734,9 @@ export default function Dashboard() {
   // Quick Tweet Modal Component
   const QuickTweetModal = () => {
     if (!quickTweetModal.isOpen) return null;
-    
+
     const selectedTweet = quickTweetModal.tweets[quickTweetModal.selectedTweet];
-    
+
     return (
       <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
         <div className="bg-white dark:bg-gray-900 rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
@@ -756,7 +751,7 @@ export default function Dashboard() {
             </div>
             <p className="text-sm text-gray-500 mt-1">Standalone engagement tweets - no news needed</p>
           </div>
-          
+
           <div className="p-6 space-y-6">
             {/* Category Selector */}
             <div>
@@ -766,11 +761,10 @@ export default function Dashboard() {
                   <button
                     key={cat.id}
                     onClick={() => generateQuickTweets(cat.id)}
-                    className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${
-                      quickTweetModal.category === cat.id
+                    className={`px-3 py-1.5 text-sm rounded-lg border transition-colors ${quickTweetModal.category === cat.id
                         ? 'bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white'
                         : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-gray-400'
-                    }`}
+                      }`}
                   >
                     {cat.label}
                   </button>
@@ -790,11 +784,10 @@ export default function Dashboard() {
                   <button
                     key={index}
                     onClick={() => setQuickTweetModal(prev => ({ ...prev, selectedTweet: index }))}
-                    className={`w-full text-left p-4 rounded-lg border transition-colors ${
-                      quickTweetModal.selectedTweet === index
+                    className={`w-full text-left p-4 rounded-lg border transition-colors ${quickTweetModal.selectedTweet === index
                         ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800'
                         : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600'
-                    }`}
+                      }`}
                   >
                     <p className="text-gray-900 dark:text-gray-100 text-sm">{tweet.text}</p>
                     <p className="text-xs text-gray-400 mt-2">{tweet.text.length}/280</p>
@@ -825,7 +818,7 @@ export default function Dashboard() {
                     </button>
                   </div>
                 </div>
-                
+
                 <button
                   onClick={() => {
                     postToX(selectedTweet.text);
@@ -835,7 +828,7 @@ export default function Dashboard() {
                   className="w-full px-4 py-2.5 bg-gray-900 dark:bg-white text-white dark:text-gray-900 rounded-lg font-medium hover:opacity-90 disabled:opacity-50 transition-opacity flex items-center justify-center gap-2"
                 >
                   <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
-                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
                   </svg>
                   Post to X
                 </button>
@@ -852,7 +845,7 @@ export default function Dashboard() {
     <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
       <TweetModal />
       <QuickTweetModal />
-      
+
       {/* Header */}
       <header className="bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
         <div className="max-w-4xl mx-auto px-6 py-5">
@@ -891,11 +884,10 @@ export default function Dashboard() {
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id as Tab)}
-              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab.id
+              className={`pb-3 text-sm font-medium border-b-2 transition-colors ${activeTab === tab.id
                   ? 'border-gray-900 dark:border-white text-gray-900 dark:text-white'
                   : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-              }`}
+                }`}
             >
               {tab.label}
               {tab.count !== null && (
@@ -903,7 +895,7 @@ export default function Dashboard() {
               )}
             </button>
           ))}
-          
+
           <div className="ml-auto pb-3">
             <button
               onClick={loadPosts}

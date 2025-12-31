@@ -23,7 +23,6 @@ function isStorageExpired(generatedAt: string): boolean {
 }
 
 export async function readPosts(): Promise<PostsStorage> {
-  // Use in-memory storage for Vercel
   if (!memoryStorage) {
     memoryStorage = { 
       generated_at: new Date().toISOString(), 
@@ -32,7 +31,6 @@ export async function readPosts(): Promise<PostsStorage> {
     };
   }
   
-  // Auto-cleanup: if storage is older than 4 days, reset everything
   if (isStorageExpired(memoryStorage.generated_at)) {
     memoryStorage = { 
       generated_at: new Date().toISOString(), 
@@ -42,10 +40,6 @@ export async function readPosts(): Promise<PostsStorage> {
     return memoryStorage;
   }
   
-  // Clean up old posts from both lists
-  const originalPostsCount = memoryStorage.posts.length;
-  const originalPostedCount = memoryStorage.posted.length;
-  
   memoryStorage.posts = cleanupOldPosts(memoryStorage.posts);
   memoryStorage.posted = cleanupOldPosts(memoryStorage.posted);
   
@@ -54,11 +48,7 @@ export async function readPosts(): Promise<PostsStorage> {
 
 export async function savePosts(posts: RedditPost[]): Promise<PostsStorage> {
   const existing = await readPosts();
-  
-  // Get IDs of posts already marked as done or deleted
   const postedIds = new Set(existing.posted.map(p => p.id));
-  
-  // Filter out posts that have already been marked as done
   const filteredPosts = posts.filter(post => !postedIds.has(post.id));
   
   memoryStorage = {

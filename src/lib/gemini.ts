@@ -24,7 +24,7 @@ export async function generateTweet(
   const model = genAI.getGenerativeModel({ 
     model: 'gemini-2.5-flash',
     generationConfig: {
-      temperature: tone === 'unhinged' ? 1.1 : tone === 'sarcastic' ? 0.95 : tone === 'analytical' ? 0.7 : 0.9,
+      temperature: tone === 'unhinged' ? 1.2 : tone === 'sarcastic' ? 1.0 : 0.8,
     }
   });
 
@@ -37,84 +37,98 @@ export async function generateTweet(
   }
 
   const tonePrompts: Record<TweetTone, string> = {
-    hottake: `Write like someone who's been in tech for years and is tired of the BS. Not trying to be funny, just stating facts that happen to be brutal.
+    hottake: `Write like a tech veteran giving a blunt reality check. 
+STYLE:
+- Lowercase (mostly)
+- Short, punchy sentences
+- No filler words
+- Brutally honest
+- NOT trying to be funny, just right
 
-VOICE: Confident, direct, slightly jaded. Like texting a friend about industry news.
+BAD EXAMPLES (Don't do this):
+- "Let's talk about..."
+- "So, X just happened..."
+- "Big news!"
+- "[Company] is shaking things up"
 
-GOOD TWEETS (this energy):
-- "they've been doing the opposite of this for 5 years but sure"
-- "funny how this drops right after the earnings call"  
-- "remember when they said they'd never do this? I remember"
-- "this is literally just [thing] with extra steps"
-- "the bar was on the floor and they brought a shovel"
+GOOD EXAMPLES:
+- "everyone acting surprised like this wasn't obvious 6 months ago"
+- "cool feature but nobody asked for this"
+- "solving a problem that doesn't exist"
+- "10 years later and we're still doing this"
+`,
 
-AVOID these AI patterns:
-- Starting with "So" or "Well"
-- Using "wild" "insane" "crazy" "incredible"
-- Rhetorical questions
-- Explaining the joke
-- Sounding impressed or excited`,
+    analytical: `Write like a senior principal engineer in a private group chat.
+STYLE:
+- Lowercase
+- Technical and precise
+- Cynical but insightful
+- Focus on the *why* or the *money/incentives*
+- No corporate buzzwords
 
-    analytical: `Write like a tech insider sharing genuine insight. You understand the business side, not just the product. Keep it to 2 sentences max.
+BAD EXAMPLES (Don't do this):
+- "This represents a paradigm shift..."
+- "Leveraging AI for..."
+- "In the current landscape..."
 
-VOICE: Informed, connecting dots. Like a senior engineer explaining context in slack.
+GOOD EXAMPLES:
+- "this is just an acqui-hire with better pr"
+- "optimization for metrics vs actual utility"
+- "the unit economics on this don't make sense"
+- "cleaning up the tech debt from the 2021 pivot"
+`,
 
-GOOD TWEETS (this energy):
-- "this is really about their Q2 numbers, the feature is just the excuse"
-- "makes more sense when you know their enterprise contracts are up"
-- "third time they've tried this. different market now"
-- "the timing here isn't random"
+    sarcastic: `Write like you are exhausted by the tech industry hype cycle.
+STYLE:
+- Dry, deadpan
+- No "lol" or "lmao"
+- No exclamation points!
+- Specificity > broad jokes
 
-AVOID these AI patterns:
-- Starting with "The real story is..." or "Here's the thing"
-- Numbered lists or bullet points
-- Sounding like a LinkedIn post
-- Using "landscape" "ecosystem" "leverage"`,
+BAD EXAMPLES (Don't do this):
+- "Oh great! Another AI app!" (Too generic)
+- "Whatever shall we do?" (Too theatrical)
+- "/s" (Never use this)
 
-    sarcastic: `Write like someone who's seen this exact thing happen 10 times before. Dry, understated, not trying hard.
+GOOD EXAMPLES:
+- "revolutionary new feature called 'copy paste'"
+- "can't wait to pay $20/month for this"
+- "bold strategy to alienate the only users they have left"
+- "finally, a solution for the 3 people who wanted this"
+`,
 
-VOICE: Deadpan, ironic, tired. The humor comes from understatement, not exaggeration.
+    unhinged: `Write like a chaotic internet native.
+STYLE:
+- Lowercase
+- Stream of consciousness
+- Specific, weird details
+- Can be slightly nonsensical
+- Referenced niche tech culture
 
-GOOD TWEETS (this energy):
-- "ah yes, the classic 'we care about users now' pivot"
-- "can't wait to see how this gets walked back in 6 months"
-- "incredible how they managed to make [thing] worse"
-- "they really said 'what if we did [bad thing] but called it [good thing]'"
+BAD EXAMPLES (Don't do this):
+- "I'm screaming!"
+- "Omg"
+- "Literally me"
 
-AVOID these AI patterns:
-- "Revolutionary. Groundbreaking." (overused)
-- Obvious sarcasm markers like /s
-- Being actually mean or cruel
-- Explaining why it's ironic`,
-
-    unhinged: `Write like someone who spends too much time online but is actually making a point. Lowercase, casual, meme-adjacent.
-
-VOICE: Chaotic but relatable. The joke is in the delivery, not the content.
-
-GOOD TWEETS (this energy):
-- "me watching this unfold knowing exactly how it ends"
-- "we're really just doing this now huh"
-- "the way they announced this like we wouldn't notice"
-- "not them acting like this is new"
-
-AVOID these AI patterns:
-- Forced meme references
-- "the simulation" jokes
-- Random emojis everywhere
-- ALL CAPS for emphasis`,
+GOOD EXAMPLES:
+- "my sleep paralysis demon coded this"
+- "i would trust this company with a ham sandwich let alone my data"
+- "visualizing the pm meeting where this was decided"
+- "putting this in the folder with the metaverse and nft pets"
+`,
   };
 
   const prompt = `${context}
 
 ${tonePrompts[tone]}
 
-Write 3 tweets about this news. Each tweet should:
-- Be 1-2 sentences max
-- Take a different angle on the story
-- Sound like an actual person typed it, NOT like AI or a brand
-- Reference something specific from the news
-
-CRITICAL: Do NOT use these AI giveaway phrases: "Let's talk about", "Here's the thing", "I mean", "Look,", "Honestly,", "It's giving", "The fact that", "Imagine", "Picture this"
+TASK: Write 3 tweets about this news.
+CONSTRAINTS:
+- ABSOLUTELY NO HASHTAGS (#)
+- ABSOLUTELY NO EMOJIS (unless specific to 'unhinged' vibe)
+- No questions at the start
+- No "engagement bait"
+- Keep it under 200 characters
 
 Return only JSON:
 {"tweets":[{"text":"..."},{"text":"..."},{"text":"..."}]}`;
@@ -124,8 +138,6 @@ Return only JSON:
     
     const result = await model.generateContent(prompt);
     const response = result.response.text();
-    
-    console.log('Gemini response:', response.substring(0, 300));
     
     let clean = response.trim();
     if (clean.includes('```')) {
@@ -152,24 +164,24 @@ Return only JSON:
 function generateFallbackTweets(_title: string, tone: TweetTone): GeneratedTweet[] {
   const fallbacks: Record<TweetTone, string[]> = {
     hottake: [
-      `they've been saying the opposite for years but sure`,
-      `funny timing on this one`,
-      `we're really doing this again huh`,
+      `everyone acting surprised like this wasn't obvious months ago`,
+      `solving a problem that honestly doesn't exist`,
+      `10 years later and we're still doing this loop`,
     ],
     analytical: [
-      `this is really about their upcoming earnings, the rest is just positioning`,
-      `makes more sense when you look at what their competitors announced last week`,
-      `third time they've tried this approach. curious if anything's different now`,
+      `this is just an acqui-hire with better pr`,
+      `optimization for metrics vs actual utility`,
+      `the unit economics on this don't make sense`,
     ],
     sarcastic: [
-      `ah yes, because that worked so well last time`,
-      `can't wait to see how this gets quietly reversed`,
-      `the audacity is almost impressive`,
+      `revolutionary new feature called 'copy paste'`,
+      `can't wait to pay monthly for something that was free`,
+      `bold strategy to alienate the only users they have left`,
     ],
     unhinged: [
-      `me watching this knowing exactly how it ends`,
-      `we're really just doing this now`,
-      `not them acting like we wouldn't notice`,
+      `my sleep paralysis demon coded this`,
+      `visualizing the pm meeting where this was decided`,
+      `putting this in the folder with the metaverse`,
     ],
   };
 
@@ -210,21 +222,21 @@ export async function generateThread(
 
   const prompt = `${context}
 
-Write a Twitter THREAD (4 tweets) about this news. This should be informative and engaging.
+TASK: Write a Twitter/X THREAD (4 tweets) about this.
+VIBE: Knowledgeable, concise, low-ego. Like a knowledgeable friend explaining something cool.
 
-THREAD STRUCTURE:
-1. Hook - grab attention, state the news in an interesting way
-2. Context - why this matters, background info
-3. Analysis - your take, what this means, implications
-4. Closer - prediction, question, or call to action
+STRUCTURE:
+1. The Hook: Just the facts or the most interesting part. NO clickbait questions.
+2. The Context: Why it matters now.
+3. The Detail: A specific interesting nuance.
+4. The Takeaway: A forward-looking statement.
 
-RULES:
-- Each tweet should be under 280 characters
-- First tweet should hook people to read more
-- Don't number the tweets (no "1/4" etc)
-- Sound like a knowledgeable person sharing insights, not a news outlet
-- Last tweet should invite discussion or make a prediction
+CONSTRAINTS:
+- Lowercase styling preferred
+- NO emojis
 - NO hashtags
+- NO "Thread 🧵" or "1/4" markers
+- Max 250 chars per tweet
 
 Return JSON only:
 {"thread":["tweet 1","tweet 2","tweet 3","tweet 4"]}`;
@@ -253,9 +265,9 @@ Return JSON only:
     return {
       tweets: [
         `${title}`,
-        `Here's why this matters and what you need to know.`,
-        `The implications of this could be significant for the industry.`,
-        `What do you think - is this a good move? Reply with your take.`,
+        `context on why this matters right now.`,
+        `interesting detail that most people miss.`,
+        `where this goes from here.`,
       ],
       tone,
     };
@@ -280,69 +292,59 @@ export async function generateQuickTweets(category: QuickTweetCategory = 'random
   const genAI = new GoogleGenerativeAI(apiKey);
   const model = genAI.getGenerativeModel({ 
     model: 'gemini-2.5-flash',
-    generationConfig: { temperature: 1.0 }
+    generationConfig: { temperature: 1.1 }
   });
 
   const categoryPrompts: Record<QuickTweetCategory, string> = {
-    uncomfortable: `Generate short, punchy questions that make people uncomfortable but want to answer. Under 100 characters.
-
+    uncomfortable: `PROMPT: spicy tech questions that hurt feelings.
+STYLE: lowercase, direct.
 EXAMPLES:
-- "what's a tech opinion that would get you mass unfollowed"
-- "what tool does everyone use that you refuse to touch"
-- "what's the worst advice you followed early in your career"
-- "what's something you pretend to understand but don't"
-- "what's a popular take you're tired of hearing"`,
+- "post your screen time"
+- "show me a senior dev who actually likes scrum"
+- "name a framework that died and you're glad"`,
 
-    reflective: `Generate simple, thoughtful questions. Under 100 characters. Easy to answer.
-
+    reflective: `PROMPT: thoughtful questions for devs.
+STYLE: chill, genuine.
 EXAMPLES:
-- "what's something you stopped doing that improved your work"
-- "what took you way too long to learn"
-- "what's a small change that made a big difference"
-- "what do you wish you knew 5 years ago"
-- "what's underrated in your workflow"`,
+- "what did you learn this year that actually mattered"
+- "hardest thing you shipped recently"
+- "who helped you the most in your career"`,
 
-    debate: `Generate short debate starters. Under 100 characters. Two valid sides.
-
+    debate: `PROMPT: subtle divisive topics.
+STYLE: short, binary choices.
 EXAMPLES:
-- "is remote work actually more productive"
-- "are code reviews worth the time"
-- "is typescript worth the overhead"
-- "should you specialize or generalize"
-- "is perfectionism holding you back or pushing you forward"`,
+- "remote or hybrid given the choice"
+- "startup equity or big tech salary"
+- "generalist or specialist in 2025"`,
 
-    punchy: `Generate very short, direct questions. Under 80 characters. One-liners.
-
+    punchy: `PROMPT: super short questions.
+STYLE: under 60 chars.
 EXAMPLES:
-- "most overrated tool in your stack?"
-- "tabs or spaces and why"
-- "what's your unpopular tech opinion"
-- "what trend are you ignoring"
-- "what's dying that nobody talks about"`,
+- "fav vs code theme"
+- "mac or linux be honest"
+- "best tech podcast?"`,
 
-    personal: `Generate simple personal experience questions. Under 100 characters.
-
+    personal: `PROMPT: authentic career questions.
+STYLE: vulnerable but professional.
 EXAMPLES:
-- "what's a tool you dropped and never looked back"
-- "what's the best career decision you made"
-- "what's something you learned the hard way"
-- "what habit actually stuck"
-- "what did you stop caring about"`,
+- "moment you felt like a senior dev"
+- "biggest mistake you made in prod"
+- "why did you start coding"`,
 
-    random: `Generate a mix of short, engaging tech questions. Under 100 characters each. Variety of styles.`,
+    random: `PROMPT: mix of chaotic and interesting tech questions.`,
   };
 
-  const prompt = `Generate 5 short tech engagement tweets. No news needed.
-
+  const prompt = `Generate 5 short tech engagement tweets.
+CATEGORY: ${category}
 ${categoryPrompts[category]}
 
 RULES:
-- Keep it SHORT. Under 100 characters each, ideally under 80
-- Simple language, lowercase is fine
-- Questions work best
-- NO hashtags, NO links
-- Sound like a real person, not a brand
-- Easy to reply to
+- STRICTLY LOWERCASE ONLY
+- NO HASHTAGS
+- NO EMOJIS
+- NO "Question:" PREFACE
+- Sound like a person, not a brand account
+- Under 100 characters
 
 Return JSON only:
 {"tweets":["tweet 1","tweet 2","tweet 3","tweet 4","tweet 5"]}`;
@@ -375,46 +377,46 @@ Return JSON only:
 function getQuickTweetFallbacks(category: QuickTweetCategory): QuickTweet[] {
   const fallbacks: Record<QuickTweetCategory, string[]> = {
     uncomfortable: [
-      "what's a tech opinion that would get you mass unfollowed",
-      "what tool does everyone use that you refuse to touch",
-      "what's the worst advice you followed early on",
-      "what's something you pretend to understand",
-      "what popular take are you tired of hearing",
+      "post your screen time",
+      "name a framework that deserves to die",
+      "show me a senior dev who likes jira",
+      "what code are you ashamed of",
+      "who is the most overrated tech ceo",
     ],
     reflective: [
-      "what's something you stopped doing that improved your work",
-      "what took you way too long to learn",
-      "what small change made a big difference",
-      "what do you wish you knew 5 years ago",
-      "what's underrated in your workflow",
+      "what did you learn this year that mattered",
+      "hardest thing you shipped recently",
+      "who helped you most in your career",
+      "what advice was actually useful",
+      "what skill is keeping you employed",
     ],
     debate: [
-      "is remote work actually more productive",
-      "are code reviews worth the time",
-      "is typescript worth the overhead",
-      "should you specialize or generalize",
-      "is perfectionism helping or hurting you",
+      "remote or hybrid given the choice",
+      "startup equity or big tech salary",
+      "typescript: yes or no",
+      "manager path or ic path",
+      "bootstrap or vc funding",
     ],
     punchy: [
-      "most overrated tool in your stack?",
-      "tabs or spaces and why",
-      "unpopular tech opinion?",
-      "what trend are you ignoring",
-      "what's dying that nobody talks about",
+      "fav vs code theme",
+      "mac or linux be honest",
+      "best tech podcast?",
+      "worst language syntax?",
+      "coffee or tea while coding",
     ],
     personal: [
-      "what tool did you drop and never miss",
-      "best career decision you made",
-      "something you learned the hard way",
-      "what habit actually stuck",
-      "what did you stop caring about",
+      "moment you felt like a senior dev",
+      "biggest mistake you made in prod",
+      "why did you start coding",
+      "what keeps you in this industry",
+      "first language you learned vs fav now",
     ],
     random: [
-      "what's a tech opinion that would get you unfollowed",
-      "what took you way too long to learn",
-      "is remote work actually more productive",
-      "most overrated tool?",
-      "what tool did you drop and never miss",
+      "post your screen time",
+      "fav vs code theme",
+      "remote or hybrid?",
+      "what skill is keeping you employed",
+      "biggest mistake in prod?",
     ],
   };
 
@@ -424,12 +426,12 @@ function getQuickTweetFallbacks(category: QuickTweetCategory): QuickTweet[] {
 // Call-to-action suggestions
 export const CTA_OPTIONS = [
   { id: 'none', label: 'No CTA', text: '' },
-  { id: 'thoughts', label: 'Thoughts?', text: '\n\nthoughts?' },
-  { id: 'agree', label: 'Agree/Disagree', text: '\n\nagree or disagree?' },
-  { id: 'reply', label: 'Reply', text: '\n\nreply with your take' },
-  { id: 'predict', label: 'Prediction', text: '\n\nwhat do you think happens next?' },
-  { id: 'hot', label: 'Hot Take', text: '\n\nam I wrong?' },
-  { id: 'discuss', label: 'Discuss', text: '\n\nlet\'s discuss 👇' },
+  { id: 'thoughts', label: 'thoughts', text: '\n\nthoughts?' },
+  { id: 'agree', label: 'agree/disagree', text: '\n\nagree or disagree?' },
+  { id: 'reply', label: 'reply', text: '\n\nreply with your take' },
+  { id: 'predict', label: 'prediction', text: '\n\nwhere do we go from here' },
+  { id: 'hot', label: 'hot take', text: '\n\nam i wrong' },
+  { id: 'discuss', label: 'discuss', text: '\n\nlet\'s discuss' },
 ] as const;
 
 export type CTAOption = typeof CTA_OPTIONS[number]['id'];

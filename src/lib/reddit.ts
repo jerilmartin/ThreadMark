@@ -4,7 +4,11 @@ import { RedditPost } from '@/types/reddit';
 // Tech subreddits for popular content
 const SUBREDDITS = [
   'technology',
-  'programming', 
+  'Singularity',
+  'OpenAI',
+  'LocalLLaMA',
+  'hardware',
+  'programming',
   'technews',
   'MachineLearning',
   'artificial',
@@ -17,14 +21,16 @@ const SUBREDDITS = [
 const HACKERNEWS_FEED = 'https://hnrss.org/newest?points=200&count=30';
 const TECHCRUNCH_FEED = 'https://techcrunch.com/feed/';
 const WIRED_FEED = 'https://www.wired.com/feed/rss';
-const GOOGLE_NEWS_TECH = 'https://news.google.com/rss/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGRqTVhZU0FtVnVHZ0pWVXlnQVAB';
+// Strict technology search, last 24h, US English
+const GOOGLE_NEWS_TECH = 'https://news.google.com/rss/search?q=technology+when:1d&ceid=US:en&hl=en-US&gl=US';
+const ARS_TECHNICA_FEED = 'http://feeds.arstechnica.com/arstechnica/index';
 
 const POSTS_PER_SUBREDDIT = 15;
 const TOTAL_TARGET = 30;
-const MIN_REDDIT_SCORE = 50;
+const MIN_REDDIT_SCORE = 100;
 const MIN_REDDIT_COMMENTS = 10;
 
-// Keywords to filter out (politics, crypto, non-tech)
+// Keywords to filter out (politics, crypto, non-tech, crime)
 const BLOCKED_KEYWORDS = [
   // Politics
   'trump', 'biden', 'democrat', 'republican', 'congress', 'senate', 'election',
@@ -33,14 +39,29 @@ const BLOCKED_KEYWORDS = [
   // Crypto/NFT
   'crypto', 'bitcoin', 'ethereum', 'nft', 'blockchain', 'dogecoin', 'shiba',
   'altcoin', 'defi', 'web3', 'hodl', 'memecoin', 'solana', 'binance',
+  // Crime/Legal
+  'murder', 'killed', 'shot', 'arrested', 'jail', 'prison', 'police', 'court',
+  'lawsuit', 'sued', 'judge', 'sentence',
   // Non-tech noise
   'kardashian', 'celebrity', 'gossip', 'dating', 'relationship', 'divorce',
   'wedding', 'baby', 'pregnant', 'horoscope', 'astrology',
 ];
 
+// Keywords to boost in ranking
+const BOOST_KEYWORDS = ['ai', 'apple', 'google', 'spacex', 'nvidia', 'openai', 'gpt', 'llm'];
+
 function containsBlockedKeyword(title: string): boolean {
   const lower = title.toLowerCase();
+
+  // Exception for 'antitrust' which is relevant tech news, even if it involves 'court'
+  if (lower.includes('antitrust')) return false;
+
   return BLOCKED_KEYWORDS.some(keyword => lower.includes(keyword));
+}
+
+function getBoostScore(title: string): number {
+  const lower = title.toLowerCase();
+  return BOOST_KEYWORDS.some(k => lower.includes(k)) ? 50 : 0;
 }
 
 async function fetchWithHeaders(url: string): Promise<string> {
@@ -81,15 +102,15 @@ function normalizeForComparison(title: string): string {
 function areSameTopic(title1: string, title2: string): boolean {
   const norm1 = normalizeForComparison(title1);
   const norm2 = normalizeForComparison(title2);
-  
+
   if (norm1 === norm2) return true;
-  
+
   const words1 = new Set(norm1.split(' '));
   const words2 = new Set(norm2.split(' '));
-  
+
   let matches = 0;
   words1.forEach(word => { if (words2.has(word)) matches++; });
-  
+
   const minSize = Math.min(words1.size, words2.size);
   return minSize > 0 && matches / minSize >= 0.6;
 }
@@ -107,29 +128,29 @@ function isSelfPost(url: string, redditLink: string): boolean {
 // Extract the actual article URL from Reddit post content
 function extractArticleUrl(item: Parser.Item, redditLink: string): string {
   const itemAny = item as Record<string, unknown>;
-  
+
   // Method 1: Check if the item's link itself is external
   const directLink = String(item.link || '');
   if (directLink && !directLink.includes('reddit.com') && !directLink.includes('redd.it')) {
     return directLink;
   }
-  
+
   // Method 2: Parse the content field for [link] href
   const content = String(
-    itemAny.content || 
-    itemAny.contentEncoded || 
-    itemAny['content:encoded'] || 
+    itemAny.content ||
+    itemAny.contentEncoded ||
+    itemAny['content:encoded'] ||
     itemAny.description ||
     ''
   );
-  
+
   if (content && content.length > 10) {
     // Pattern 1: [link] anchor tag
     const linkMatch = content.match(/<a[^>]+href=["']([^"']+)["'][^>]*>\s*\[link\]/i);
     if (linkMatch?.[1] && !linkMatch[1].includes('reddit.com')) {
       return linkMatch[1];
     }
-    
+
     // Pattern 2: First external href
     const hrefMatches = content.matchAll(/href=["'](https?:\/\/[^"']+)["']/gi);
     for (const match of hrefMatches) {
@@ -139,7 +160,7 @@ function extractArticleUrl(item: Parser.Item, redditLink: string): string {
       }
     }
   }
-  
+
   return redditLink;
 }
 
@@ -153,29 +174,29 @@ async function fetchRedditSubreddit(subreddit: string): Promise<RedditPost[]> {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
       },
     });
-    
+
     if (response.ok) {
       const data = await response.json();
       const posts: RedditPost[] = [];
-      
+
       for (const child of data.data.children) {
         if (posts.length >= POSTS_PER_SUBREDDIT) break;
-        
+
         const post = child.data;
-        
+
         // Skip self-posts, stickied posts, and low engagement
         if (post.is_self) continue;
         if (post.stickied) continue;
         if (post.score < MIN_REDDIT_SCORE) continue;
         if (post.num_comments < MIN_REDDIT_COMMENTS) continue;
-        
+
         // Skip blocked keywords
         if (containsBlockedKeyword(post.title)) continue;
-        
+
         // Skip reddit-internal URLs
         const postUrl = post.url || '';
         if (postUrl.includes('reddit.com') || postUrl.includes('redd.it')) continue;
-        
+
         posts.push({
           id: post.id,
           title: post.title || 'Untitled',
@@ -189,7 +210,7 @@ async function fetchRedditSubreddit(subreddit: string): Promise<RedditPost[]> {
           source: 'reddit' as const,
         });
       }
-      
+
       if (posts.length > 0) {
         console.log(`Reddit JSON: Got ${posts.length} from r/${subreddit}`);
         return posts;
@@ -198,7 +219,7 @@ async function fetchRedditSubreddit(subreddit: string): Promise<RedditPost[]> {
   } catch (error) {
     console.log(`Reddit JSON failed for r/${subreddit}, trying RSS...`);
   }
-  
+
   // Fallback to RSS
   return fetchRedditSubredditRSS(subreddit);
 }
@@ -211,23 +232,23 @@ async function fetchRedditSubredditRSS(subreddit: string): Promise<RedditPost[]>
     const feed = await parser.parseString(xml);
 
     const posts: RedditPost[] = [];
-    
+
     for (let i = 0; i < feed.items.length && posts.length < POSTS_PER_SUBREDDIT; i++) {
       const item = feed.items[i];
       const redditLink = item.link || '';
       const articleUrl = extractArticleUrl(item, redditLink);
-      
+
       // Skip self-posts
       if (isSelfPost(articleUrl, redditLink)) continue;
-      
+
       // Skip blocked keywords
       if (containsBlockedKeyword(item.title || '')) continue;
-      
+
       posts.push({
         id: extractPostId(redditLink),
         title: item.title || 'Untitled',
         subreddit,
-        score: 100, // Assume decent score since it's on hot
+        score: 150, // Assume decent score since it's on hot
         num_comments: 30,
         url: articleUrl,
         created_utc: item.pubDate ? Math.floor(new Date(item.pubDate).getTime() / 1000) : 0,
@@ -236,7 +257,7 @@ async function fetchRedditSubredditRSS(subreddit: string): Promise<RedditPost[]>
         source: 'reddit' as const,
       });
     }
-    
+
     console.log(`Reddit RSS: Got ${posts.length} from r/${subreddit}`);
     return posts;
   } catch (error) {
@@ -252,7 +273,6 @@ async function fetchAllReddit(): Promise<RedditPost[]> {
   return allPosts.flat();
 }
 
-// Fetch HackerNews
 async function fetchHackerNews(): Promise<RedditPost[]> {
   try {
     const xml = await fetchWithHeaders(HACKERNEWS_FEED);
@@ -287,14 +307,13 @@ async function fetchHackerNews(): Promise<RedditPost[]> {
   }
 }
 
-// Fetch TechCrunch
 async function fetchTechCrunch(): Promise<RedditPost[]> {
   try {
     const xml = await fetchWithHeaders(TECHCRUNCH_FEED);
     const feed = await parser.parseString(xml);
-    
+
     const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
-    
+
     return feed.items
       .filter(item => {
         const pubDate = item.pubDate ? new Date(item.pubDate).getTime() : 0;
@@ -309,7 +328,7 @@ async function fetchTechCrunch(): Promise<RedditPost[]> {
           id: `tc-${link.split('/').pop() || index}`,
           title: item.title || 'Untitled',
           subreddit: 'TechCrunch',
-          score: 100,
+          score: 350, // Competitive base score
           num_comments: 30,
           url: link,
           created_utc: item.pubDate ? Math.floor(new Date(item.pubDate).getTime() / 1000) : 0,
@@ -324,14 +343,13 @@ async function fetchTechCrunch(): Promise<RedditPost[]> {
   }
 }
 
-// Fetch Wired
 async function fetchWired(): Promise<RedditPost[]> {
   try {
     const xml = await fetchWithHeaders(WIRED_FEED);
     const feed = await parser.parseString(xml);
-    
+
     const fiveDaysAgo = Date.now() - 5 * 24 * 60 * 60 * 1000;
-    
+
     return feed.items
       .filter(item => {
         const pubDate = item.pubDate ? new Date(item.pubDate).getTime() : 0;
@@ -346,7 +364,7 @@ async function fetchWired(): Promise<RedditPost[]> {
           id: `wired-${link.split('/').pop() || index}`,
           title: item.title || 'Untitled',
           subreddit: 'Wired',
-          score: 80,
+          score: 300, // Competitive base score
           num_comments: 20,
           url: link,
           created_utc: item.pubDate ? Math.floor(new Date(item.pubDate).getTime() / 1000) : 0,
@@ -361,31 +379,66 @@ async function fetchWired(): Promise<RedditPost[]> {
   }
 }
 
-// Fetch Google News Tech - trending tech stories
+async function fetchArsTechnica(): Promise<RedditPost[]> {
+  try {
+    const xml = await fetchWithHeaders(ARS_TECHNICA_FEED);
+    const feed = await parser.parseString(xml);
+
+    const threeDaysAgo = Date.now() - 3 * 24 * 60 * 60 * 1000;
+
+    return feed.items
+      .filter(item => {
+        const pubDate = item.pubDate ? new Date(item.pubDate).getTime() : 0;
+        if (pubDate <= threeDaysAgo) return false;
+        if (containsBlockedKeyword(item.title || '')) return false;
+        return true;
+      })
+      .slice(0, 15)
+      .map((item, index) => {
+        const link = item.link || '';
+        return {
+          id: `ars-${link.split('/').pop() || index}`,
+          title: item.title || 'Untitled',
+          subreddit: 'ArsTechnica',
+          score: 320, // Competitive base score
+          num_comments: 25,
+          url: link,
+          created_utc: item.pubDate ? Math.floor(new Date(item.pubDate).getTime() / 1000) : 0,
+          permalink: link,
+          subredditRank: index + 1,
+          source: 'arstechnica' as const,
+        };
+      });
+  } catch (error) {
+    console.error('Error fetching Ars Technica:', error);
+    return [];
+  }
+}
+
 async function fetchGoogleNews(): Promise<RedditPost[]> {
   try {
     const xml = await fetchWithHeaders(GOOGLE_NEWS_TECH);
     const feed = await parser.parseString(xml);
-    
+
     return feed.items
       .filter(item => !containsBlockedKeyword(item.title || ''))
       .slice(0, 20)
       .map((item, index) => {
         const link = item.link || '';
         const itemAny = item as Record<string, unknown>;
-        
+
         // Google News wraps the actual URL, try to extract source
         let sourceUrl = link;
         const sourceInfo = itemAny.sourceInfo as { url?: string } | undefined;
         if (sourceInfo?.url) {
           sourceUrl = sourceInfo.url;
         }
-        
+
         return {
           id: `gn-${Date.now()}-${index}`,
           title: item.title?.replace(/ - .*$/, '') || 'Untitled', // Remove source suffix
           subreddit: 'GoogleNews',
-          score: 50,
+          score: 250, // Competitive base score
           num_comments: 10,
           url: sourceUrl,
           created_utc: item.pubDate ? Math.floor(new Date(item.pubDate).getTime() / 1000) : 0,
@@ -403,10 +456,10 @@ async function fetchGoogleNews(): Promise<RedditPost[]> {
 // Detect trending - posts appearing on multiple sources
 function detectTrending(posts: RedditPost[]): RedditPost[] {
   const topicGroups: Map<string, RedditPost[]> = new Map();
-  
+
   for (const post of posts) {
     let foundGroup = false;
-    
+
     for (const [, group] of topicGroups) {
       if (areSameTopic(post.title, group[0].title)) {
         // Only count if from different source
@@ -417,20 +470,20 @@ function detectTrending(posts: RedditPost[]): RedditPost[] {
         break;
       }
     }
-    
+
     if (!foundGroup) {
       topicGroups.set(normalizeForComparison(post.title), [post]);
     }
   }
-  
+
   const trendingTopics = new Map<string, number>();
-  
+
   for (const [key, group] of topicGroups) {
     if (group.length >= 2) {
       trendingTopics.set(key, group.length);
     }
   }
-  
+
   return posts.map(post => {
     for (const [key, count] of trendingTopics) {
       if (areSameTopic(post.title, key)) {
@@ -445,17 +498,17 @@ function detectTrending(posts: RedditPost[]): RedditPost[] {
 function deduplicatePosts(posts: RedditPost[]): RedditPost[] {
   const seen = new Map<string, RedditPost>();
   const seenUrls = new Set<string>();
-  
+
   for (const post of posts) {
     // Skip if we've seen this exact URL
     if (seenUrls.has(post.url)) continue;
-    
+
     // Skip if similar title exists
     let isDuplicate = false;
     for (const [existingNorm, existingPost] of seen) {
       if (areSameTopic(post.title, existingNorm)) {
-        // Keep the trending one, or the one from a better source
-        if (post.trending && !existingPost.trending) {
+        // Keep the one with higher score or trending status
+        if ((post.trending && !existingPost.trending) || (post.score > existingPost.score * 1.5)) {
           seen.delete(existingNorm);
           seenUrls.delete(existingPost.url);
         } else {
@@ -464,98 +517,113 @@ function deduplicatePosts(posts: RedditPost[]): RedditPost[] {
         break;
       }
     }
-    
+
     if (!isDuplicate) {
       seen.set(normalizeForComparison(post.title), post);
       seenUrls.add(post.url);
     }
   }
-  
+
   return Array.from(seen.values());
 }
 
-// Main fetch function - ALWAYS returns exactly 30 posts with balanced sources
+// Main fetch function - Returns exactly 30 posts with uniform distribution across sources
 export async function fetchRedditPosts(): Promise<RedditPost[]> {
   console.log('Fetching from all sources...');
-  
+
   // Fetch from all sources in parallel
-  const [redditPosts, hnPosts, tcPosts, wiredPosts, gnPosts] = await Promise.all([
+  const [redditPosts, hnPosts, tcPosts, wiredPosts, gnPosts, arsPosts] = await Promise.all([
     fetchAllReddit(),
     fetchHackerNews(),
     fetchTechCrunch(),
     fetchWired(),
     fetchGoogleNews(),
+    fetchArsTechnica(),
   ]);
-  
-  console.log(`Fetched - Reddit: ${redditPosts.length}, HN: ${hnPosts.length}, TC: ${tcPosts.length}, Wired: ${wiredPosts.length}, GNews: ${gnPosts.length}`);
-  
-  // Sort each source by engagement
-  const sortByEngagement = (posts: RedditPost[]) => 
-    posts.sort((a, b) => (b.score + b.num_comments * 2) - (a.score + a.num_comments * 2));
-  
-  sortByEngagement(redditPosts);
-  sortByEngagement(hnPosts);
-  sortByEngagement(tcPosts);
-  sortByEngagement(wiredPosts);
-  sortByEngagement(gnPosts);
-  
-  // Take balanced amounts from each source (aim for ~6 each for 30 total)
-  const balancedPosts: RedditPost[] = [
-    ...redditPosts.slice(0, 8),
-    ...hnPosts.slice(0, 8),
-    ...tcPosts.slice(0, 6),
-    ...wiredPosts.slice(0, 4),
-    ...gnPosts.slice(0, 4),
+
+  console.log(`Fetched - Reddit: ${redditPosts.length}, HN: ${hnPosts.length}, TC: ${tcPosts.length}, Wired: ${wiredPosts.length}, GNews: ${gnPosts.length}, Ars: ${arsPosts.length}`);
+
+  // Sort helper - relative score within each source
+  const getSortScore = (p: RedditPost) => {
+    const score = p.score + p.num_comments * 2 + getBoostScore(p.title);
+    return score;
+  };
+
+  const sortByScore = (posts: RedditPost[]) =>
+    [...posts].sort((a, b) => getSortScore(b) - getSortScore(a));
+
+  // Sort each source by their internal engagement
+  const sortedReddit = sortByScore(redditPosts);
+  const sortedHN = sortByScore(hnPosts);
+  const sortedTC = sortByScore(tcPosts);
+  const sortedWired = sortByScore(wiredPosts);
+  const sortedGN = sortByScore(gnPosts);
+  const sortedArs = sortByScore(arsPosts);
+
+  // Quota per source (5 each = 30 total)
+  const QUOTA = 5;
+
+  // Take top posts from each source (up to quota)
+  const quotaPosts: RedditPost[] = [
+    ...sortedReddit.slice(0, QUOTA),
+    ...sortedHN.slice(0, QUOTA),
+    ...sortedTC.slice(0, QUOTA),
+    ...sortedWired.slice(0, QUOTA),
+    ...sortedGN.slice(0, QUOTA),
+    ...sortedArs.slice(0, QUOTA),
   ];
-  
-  // Detect trending (appears on multiple sources)
-  const withTrending = detectTrending(balancedPosts);
-  
-  // Sort by engagement score (score + comments * 2) and trending
-  withTrending.sort((a, b) => {
+
+  // Detect trending across the quota selection
+  const trendingMarked = detectTrending(quotaPosts);
+
+  // Deduplicate (in case same story appears across sources)
+  const uniquePosts = deduplicatePosts(trendingMarked);
+
+  console.log(`After quota + dedup: ${uniquePosts.length} posts`);
+
+  // If we lost posts to deduplication, backfill from remaining posts
+  if (uniquePosts.length < TOTAL_TARGET) {
+    const usedIds = new Set(uniquePosts.map(p => p.id));
+    const remaining = [
+      ...sortedReddit.slice(QUOTA),
+      ...sortedHN.slice(QUOTA),
+      ...sortedTC.slice(QUOTA),
+      ...sortedWired.slice(QUOTA),
+      ...sortedGN.slice(QUOTA),
+      ...sortedArs.slice(QUOTA),
+    ].filter(p => !usedIds.has(p.id) && !containsBlockedKeyword(p.title));
+
+    // Sort remaining by score
+    remaining.sort((a, b) => getSortScore(b) - getSortScore(a));
+
+    for (const post of remaining) {
+      if (uniquePosts.length >= TOTAL_TARGET) break;
+      // Check for title duplicates
+      const isDupe = uniquePosts.some(p => areSameTopic(p.title, post.title));
+      if (!isDupe) {
+        uniquePosts.push(post);
+      }
+    }
+  }
+
+  // Final sort: Trending first, then by score
+  uniquePosts.sort((a, b) => {
     // Trending posts first
     if (a.trending && !b.trending) return -1;
     if (!a.trending && b.trending) return 1;
-    
-    // Among trending, sort by how many sources
+    // Then by trending count
     if (a.trending && b.trending) {
       const countDiff = (b.trendingCount || 0) - (a.trendingCount || 0);
       if (countDiff !== 0) return countDiff;
     }
-    
-    // Then by engagement score (score + comments weighted)
-    const engagementA = a.score + (a.num_comments * 2);
-    const engagementB = b.score + (b.num_comments * 2);
-    return engagementB - engagementA;
+    // Then by score
+    return getSortScore(b) - getSortScore(a);
   });
-  
-  // Deduplicate
-  const uniquePosts = deduplicatePosts(withTrending);
-  
-  console.log(`After dedup: ${uniquePosts.length} unique posts`);
-  
-  // If we don't have enough, add more from remaining posts
-  let result = uniquePosts.slice(0, TOTAL_TARGET);
-  
-  if (result.length < TOTAL_TARGET) {
-    // Add more from any source that has extras
-    const usedIds = new Set(result.map(p => p.id));
-    const allRemaining = [...redditPosts, ...hnPosts, ...tcPosts, ...wiredPosts, ...gnPosts]
-      .filter(p => !usedIds.has(p.id) && !containsBlockedKeyword(p.title));
-    
-    sortByEngagement(allRemaining);
-    
-    for (const post of allRemaining) {
-      if (result.length >= TOTAL_TARGET) break;
-      // Check for duplicates by title
-      const isDupe = result.some(p => areSameTopic(p.title, post.title));
-      if (!isDupe) {
-        result.push(post);
-      }
-    }
-  }
-  
+
+  // Strictly take 30
+  const result = uniquePosts.slice(0, TOTAL_TARGET);
+
   console.log(`Returning ${result.length} posts`);
-  
+
   return result;
 }
